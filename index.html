@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SNAP Case Flow Explorer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f0f2f5;padding:14px;display:flex;flex-direction:column;height:100vh}
+h1{font-size:20px;font-weight:700;color:#1a1a2e;margin-bottom:3px;flex-shrink:0}
+p.sub{font-size:12px;color:#888;margin-bottom:10px;flex-shrink:0}
+#main{display:flex;gap:0;flex:1;min-height:0}
+#chart-panel{flex:1;min-width:0;background:#fff;border-radius:12px;padding:14px 6px 12px 8px;box-shadow:0 2px 12px rgba(0,0,0,0.08);display:flex;flex-direction:column;margin-right:6px}
+#controls{display:flex;flex-direction:column;gap:7px;padding:8px 12px;margin-bottom:10px;background:#f7f8fa;border-radius:8px;border:1px solid #e8eaed;flex-shrink:0}
+.ctrl-row{display:flex;align-items:center;gap:10px}
+.ctrl-label{font-size:12px;font-weight:600;color:#333;width:145px;flex-shrink:0}
+.ctrl-row input[type=range]{flex:1;max-width:200px;accent-color:#444;cursor:pointer}
+.ctrl-val{font-size:12px;font-weight:700;color:#1a1a2e;min-width:36px}
+#chart-wrap{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;margin-top:14px}
+svg{display:block}
+.legend{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:#666;flex-shrink:0}
+.legend-bar{width:130px;height:9px;border-radius:3px;background:linear-gradient(to right,#00c853,#aeea00,#ffd600,#ff6d00,#dd2c00)}
+#divider{width:10px;flex-shrink:0;cursor:col-resize;display:flex;align-items:center;justify-content:center;z-index:10}
+#divider::after{content:'';width:3px;height:48px;background:#d0d0d8;border-radius:3px;transition:background 0.15s}
+#divider:hover::after,#divider.dragging::after{background:#777}
+#chat-panel{flex:0 0 30%;min-width:20%;max-width:60%;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.08);display:flex;flex-direction:column;overflow:hidden;margin-left:6px}
+#chat-header{padding:11px 14px 9px;border-bottom:1px solid #f0f0f0;flex-shrink:0}
+#chat-header-top{display:flex;justify-content:space-between;align-items:center}
+#chat-header h2{font-size:13px;font-weight:700;color:#1a1a2e;margin-bottom:1px}
+#chat-header .hsub{font-size:11px;color:#aaa}
+#settings-btn{background:none;border:none;cursor:pointer;font-size:15px;color:#888;padding:2px 5px;border-radius:5px;line-height:1;transition:background 0.15s,color 0.15s}
+#settings-btn:hover{background:#f0f0f0;color:#333}
+#settings-btn.active{color:#1a1a2e;background:#ebebeb}
+#settings-panel{display:none;margin-top:9px;padding-top:9px;border-top:1px solid #f0f0f0}
+#settings-panel label{font-size:11px;color:#888;display:block;margin-bottom:4px}
+#settings-row{display:flex;gap:5px}
+#api-key-input{flex:1;border:1px solid #ddd;border-radius:6px;padding:5px 8px;font-size:11px;outline:none;font-family:monospace;color:#333}
+#api-key-input:focus{border-color:#888}
+#save-key-btn{background:#1a1a2e;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap}
+#save-key-btn:hover{background:#2d2d4e}
+#key-status{font-size:10.5px;margin-top:4px;min-height:14px}
+.ok{color:#2e7d32}.err{color:#c62828}
+#chat-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:93%;padding:8px 10px;border-radius:10px;font-size:12px;line-height:1.45}
+.msg.user{align-self:flex-end;background:#1a1a2e;color:#fff;border-bottom-right-radius:3px}
+.msg.assistant{align-self:flex-start;background:#f3f4f6;color:#1a1a2e;border-bottom-left-radius:3px}
+.msg.thinking{color:#aaa;font-style:italic;background:#fafafa;align-self:flex-start;border-bottom-left-radius:3px}
+.suggestion-chips{display:flex;flex-wrap:wrap;gap:4px;padding:0 12px 8px;flex-shrink:0}
+.chip{font-size:10.5px;color:#555;background:#f3f4f6;border:1px solid #e0e0e0;border-radius:12px;padding:3px 8px;cursor:pointer;transition:background 0.15s}
+.chip:hover{background:#e8eaed}
+#chat-input-area{padding:10px 12px;border-top:1px solid #f0f0f0;flex-shrink:0;display:flex;gap:6px;align-items:flex-end}
+#chat-input{flex:1;border:1px solid #ddd;border-radius:8px;padding:7px 10px;font-size:12px;resize:none;outline:none;font-family:inherit;line-height:1.4;max-height:80px;min-height:34px}
+#chat-input:focus{border-color:#aaa}
+#chat-send{background:#1a1a2e;color:#fff;border:none;border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;flex-shrink:0;font-weight:600;transition:background 0.15s}
+#chat-send:hover{background:#2d2d4e}
+#chat-send:disabled{background:#ccc;cursor:not-allowed}
+#tooltip{position:fixed;background:rgba(20,20,40,0.88);color:#fff;padding:7px 11px;border-radius:7px;font-size:12px;pointer-events:none;display:none;z-index:999;line-height:1.5}
+.chat-tbl-wrap{margin-top:4px;overflow-x:auto;border-radius:7px;border:1px solid #e8eaed}
+.chat-tbl-title{font-size:11.5px;font-weight:700;color:#1a1a2e;margin-bottom:5px}
+.chat-tbl{border-collapse:collapse;width:100%;font-size:11px}
+.chat-tbl th{background:#1a1a2e;color:#fff;padding:6px 9px;text-align:left;font-weight:600;white-space:nowrap}
+.chat-tbl th:first-child{border-top-left-radius:6px}
+.chat-tbl th:last-child{border-top-right-radius:6px}
+.chat-tbl td{padding:5px 9px;border-bottom:1px solid #f0f0f0;white-space:nowrap;color:#222}
+.chat-tbl tr:last-child td{border-bottom:none}
+.chat-tbl tr:nth-child(even) td{background:rgba(0,0,0,0.018)}
+.chat-tbl td.dcell{font-weight:700;text-align:right;border-radius:3px}
+</style>
+</head>
+<body>
+<h1>SNAP Case Flow Explorer</h1>
+<p class="sub">Simulate staffing &amp; automation levels &nbsp;&middot;&nbsp; Click a segment to reveal case flows</p>
+<div id="main">
+  <div id="chart-panel">
+    <div id="controls">
+      <div class="ctrl-row">
+        <span class="ctrl-label">Case workers</span>
+        <input type="range" id="sl-workers" min="1" max="10" step="1" value="5">
+        <span class="ctrl-val" id="val-workers">5</span>
+      </div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">Doc automation</span>
+        <input type="range" id="sl-auto" min="0" max="100" step="10" value="50">
+        <span class="ctrl-val" id="val-auto">50%</span>
+      </div>
+    </div>
+    <div id="chart-wrap"><svg id="chart"></svg></div>
+    <div class="legend"><span>Fast processing</span><div class="legend-bar"></div><span>Slow / at risk</span></div>
+  </div>
+  <div id="divider"></div>
+  <div id="chat-panel">
+    <div id="chat-header">
+      <div id="chat-header-top">
+        <div><h2>Ask about the data</h2><div class="hsub">Powered by GPT-4o mini</div></div>
+        <button id="settings-btn" onclick="toggleSettings()" title="Set API key">&#9881;</button>
+      </div>
+      <div id="settings-panel">
+        <label for="api-key-input">OpenAI API Key</label>
+        <div id="settings-row">
+          <input type="password" id="api-key-input" placeholder="sk-..." autocomplete="off">
+          <button id="save-key-btn" onclick="saveKey()">Save</button>
+        </div>
+        <div id="key-status"></div>
+      </div>
+    </div>
+    <div id="chat-messages">
+      <div class="msg assistant">Hi! Ask me anything about SNAP case processing times, bottlenecks, or what-if scenarios. Set your API key via &#9881; first.</div>
+    </div>
+    <div class="suggestion-chips">
+      <span class="chip" onclick="sendChip(this)">Which intake channel is slowest?</span>
+      <span class="chip" onclick="sendChip(this)">Approval rate by category?</span>
+      <span class="chip" onclick="sendChip(this)">What if workers = 10?</span>
+      <span class="chip" onclick="sendChip(this)">Biggest bottleneck stage?</span>
+    </div>
+    <div id="chat-input-area">
+      <textarea id="chat-input" placeholder="Ask a question..." rows="1"></textarea>
+      <button id="chat-send" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+</div>
+<div id="tooltip"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+const DATA = {"N": 2000, "levels": ["Intake_Channel", "Case_Category", "Processing_Stage", "Resolution"], "level_labels": ["Intake channel", "Case category", "Processing stage", "Resolution"], "level_order": {"Intake_Channel": ["Online Portal", "Phone", "In-Person", "Mail"], "Case_Category": ["Renewal", "New Application", "Change of Circumstances", "Appeal"], "Processing_Stage": ["Initial Review", "Doc Verification", "Eligibility Det.", "Supervisor Review"], "Resolution": ["Approved", "Approved Partial", "Pending", "Denied", "Appealed"]}, "node_counts": {"Intake_Channel": {"Online Portal": 562, "Phone": 517, "In-Person": 496, "Mail": 425}, "Case_Category": {"Renewal": 553, "New Application": 536, "Change of Circumstances": 476, "Appeal": 435}, "Processing_Stage": {"Initial Review": 554, "Doc Verification": 509, "Eligibility Det.": 497, "Supervisor Review": 440}, "Resolution": {"Approved": 623, "Approved Partial": 399, "Pending": 393, "Denied": 351, "Appealed": 234}}, "flows": [{"src_li": 0, "tgt_li": 1, "src": "In-Person", "tgt": "Appeal", "value": 113, "avg_delay": 30.02}, {"src_li": 0, "tgt_li": 1, "src": "In-Person", "tgt": "Change of Circumstances", "value": 120, "avg_delay": 19.45}, {"src_li": 0, "tgt_li": 1, "src": "In-Person", "tgt": "New Application", "value": 129, "avg_delay": 23.8}, {"src_li": 0, "tgt_li": 1, "src": "In-Person", "tgt": "Renewal", "value": 134, "avg_delay": 16.07}, {"src_li": 0, "tgt_li": 1, "src": "Mail", "tgt": "Appeal", "value": 89, "avg_delay": 33.02}, {"src_li": 0, "tgt_li": 1, "src": "Mail", "tgt": "Change of Circumstances", "value": 88, "avg_delay": 22.57}, {"src_li": 0, "tgt_li": 1, "src": "Mail", "tgt": "New Application", "value": 128, "avg_delay": 27.92}, {"src_li": 0, "tgt_li": 1, "src": "Mail", "tgt": "Renewal", "value": 120, "avg_delay": 19.1}, {"src_li": 0, "tgt_li": 1, "src": "Online Portal", "tgt": "Appeal", "value": 118, "avg_delay": 23.63}, {"src_li": 0, "tgt_li": 1, "src": "Online Portal", "tgt": "Change of Circumstances", "value": 140, "avg_delay": 14.37}, {"src_li": 0, "tgt_li": 1, "src": "Online Portal", "tgt": "New Application", "value": 141, "avg_delay": 19.08}, {"src_li": 0, "tgt_li": 1, "src": "Online Portal", "tgt": "Renewal", "value": 163, "avg_delay": 11.34}, {"src_li": 0, "tgt_li": 1, "src": "Phone", "tgt": "Appeal", "value": 115, "avg_delay": 27.5}, {"src_li": 0, "tgt_li": 1, "src": "Phone", "tgt": "Change of Circumstances", "value": 128, "avg_delay": 17.49}, {"src_li": 0, "tgt_li": 1, "src": "Phone", "tgt": "New Application", "value": 138, "avg_delay": 21.02}, {"src_li": 0, "tgt_li": 1, "src": "Phone", "tgt": "Renewal", "value": 136, "avg_delay": 12.82}, {"src_li": 1, "tgt_li": 2, "src": "Appeal", "tgt": "Doc Verification", "value": 119, "avg_delay": 27.37}, {"src_li": 1, "tgt_li": 2, "src": "Appeal", "tgt": "Eligibility Det.", "value": 105, "avg_delay": 29.95}, {"src_li": 1, "tgt_li": 2, "src": "Appeal", "tgt": "Initial Review", "value": 123, "avg_delay": 23.62}, {"src_li": 1, "tgt_li": 2, "src": "Appeal", "tgt": "Supervisor Review", "value": 88, "avg_delay": 33.8}, {"src_li": 1, "tgt_li": 2, "src": "Change of Circumstances", "tgt": "Doc Verification", "value": 120, "avg_delay": 16.92}, {"src_li": 1, "tgt_li": 2, "src": "Change of Circumstances", "tgt": "Eligibility Det.", "value": 124, "avg_delay": 21.02}, {"src_li": 1, "tgt_li": 2, "src": "Change of Circumstances", "tgt": "Initial Review", "value": 141, "avg_delay": 12.77}, {"src_li": 1, "tgt_li": 2, "src": "Change of Circumstances", "tgt": "Supervisor Review", "value": 91, "avg_delay": 23.44}, {"src_li": 1, "tgt_li": 2, "src": "New Application", "tgt": "Doc Verification", "value": 141, "avg_delay": 21.11}, {"src_li": 1, "tgt_li": 2, "src": "New Application", "tgt": "Eligibility Det.", "value": 134, "avg_delay": 23.64}, {"src_li": 1, "tgt_li": 2, "src": "New Application", "tgt": "Initial Review", "value": 126, "avg_delay": 18.52}, {"src_li": 1, "tgt_li": 2, "src": "New Application", "tgt": "Supervisor Review", "value": 135, "avg_delay": 27.83}, {"src_li": 1, "tgt_li": 2, "src": "Renewal", "tgt": "Doc Verification", "value": 129, "avg_delay": 13.15}, {"src_li": 1, "tgt_li": 2, "src": "Renewal", "tgt": "Eligibility Det.", "value": 134, "avg_delay": 16.77}, {"src_li": 1, "tgt_li": 2, "src": "Renewal", "tgt": "Initial Review", "value": 164, "avg_delay": 9.24}, {"src_li": 1, "tgt_li": 2, "src": "Renewal", "tgt": "Supervisor Review", "value": 126, "avg_delay": 20.45}, {"src_li": 2, "tgt_li": 3, "src": "Doc Verification", "tgt": "Appealed", "value": 57, "avg_delay": 29.59}, {"src_li": 2, "tgt_li": 3, "src": "Doc Verification", "tgt": "Approved", "value": 155, "avg_delay": 14.27}, {"src_li": 2, "tgt_li": 3, "src": "Doc Verification", "tgt": "Approved Partial", "value": 114, "avg_delay": 17.6}, {"src_li": 2, "tgt_li": 3, "src": "Doc Verification", "tgt": "Denied", "value": 89, "avg_delay": 23.56}, {"src_li": 2, "tgt_li": 3, "src": "Doc Verification", "tgt": "Pending", "value": 94, "avg_delay": 20.85}, {"src_li": 2, "tgt_li": 3, "src": "Eligibility Det.", "tgt": "Appealed", "value": 59, "avg_delay": 32.63}, {"src_li": 2, "tgt_li": 3, "src": "Eligibility Det.", "tgt": "Approved", "value": 154, "avg_delay": 16.67}, {"src_li": 2, "tgt_li": 3, "src": "Eligibility Det.", "tgt": "Approved Partial", "value": 88, "avg_delay": 20.92}, {"src_li": 2, "tgt_li": 3, "src": "Eligibility Det.", "tgt": "Denied", "value": 87, "avg_delay": 26.69}, {"src_li": 2, "tgt_li": 3, "src": "Eligibility Det.", "tgt": "Pending", "value": 109, "avg_delay": 23.03}, {"src_li": 2, "tgt_li": 3, "src": "Initial Review", "tgt": "Appealed", "value": 70, "avg_delay": 25.2}, {"src_li": 2, "tgt_li": 3, "src": "Initial Review", "tgt": "Approved", "value": 168, "avg_delay": 9.66}, {"src_li": 2, "tgt_li": 3, "src": "Initial Review", "tgt": "Approved Partial", "value": 110, "avg_delay": 12.13}, {"src_li": 2, "tgt_li": 3, "src": "Initial Review", "tgt": "Denied", "value": 94, "avg_delay": 20.26}, {"src_li": 2, "tgt_li": 3, "src": "Initial Review", "tgt": "Pending", "value": 112, "avg_delay": 17.23}, {"src_li": 2, "tgt_li": 3, "src": "Supervisor Review", "tgt": "Appealed", "value": 48, "avg_delay": 36.57}, {"src_li": 2, "tgt_li": 3, "src": "Supervisor Review", "tgt": "Approved", "value": 146, "avg_delay": 20.88}, {"src_li": 2, "tgt_li": 3, "src": "Supervisor Review", "tgt": "Approved Partial", "value": 87, "avg_delay": 23.72}, {"src_li": 2, "tgt_li": 3, "src": "Supervisor Review", "tgt": "Denied", "value": 81, "avg_delay": 29.77}, {"src_li": 2, "tgt_li": 3, "src": "Supervisor Review", "tgt": "Pending", "value": 78, "avg_delay": 27.71}]};
+const SYSTEM_PROMPT = "You are an assistant embedded in a SNAP Case Flow Explorer dashboard.\nSNAP = Supplemental Nutrition Assistance Program (US food assistance).\nThe Sankey diagram shows case processing data across 4 dimensions:\n- Intake channel: Online Portal, Phone, In-Person, Mail\n- Case category: Renewal, New Application, Change of Circumstances, Appeal\n- Processing stage: Initial Review, Doc Verification, Eligibility Det., Supervisor Review\n- Resolution: Approved, Approved Partial, Pending, Denied, Appealed\n\nColor: green = fast processing, yellow = moderate, orange/red = slow (compliance risk).\nTotal: 2000 cases.\n\nNODE DATA (exact counts and avg processing days, matching the chart):\n  Intake channel: Online Portal: 562 cases / 16.62 days avg, Phone: 517 cases / 19.43 days avg, In-Person: 496 cases / 22.08 days avg, Mail: 425 cases / 25.39 days avg\n  Case category: Renewal: 553 cases / 14.53 days avg, New Application: 536 cases / 22.83 days avg, Change of Circumstances: 476 cases / 18.01 days avg, Appeal: 435 cases / 28.23 days avg\n  Processing stage: Initial Review: 554 cases / 15.44 days avg, Doc Verification: 509 cases / 19.57 days avg, Eligibility Det.: 497 cases / 22.47 days avg, Supervisor Review: 440 cases / 26.0 days avg\n  Resolution: Approved: 623 cases / 15.17 days avg, Approved Partial: 399 cases / 18.16 days avg, Pending: 393 cases / 21.78 days avg, Denied: 351 cases / 24.89 days avg, Appealed: 234 cases / 30.48 days avg\n\nFLOW DATA (source -> target, case count, avg processing days):\n  In-Person (Intake_Channel) -> Appeal (Case_Category): 113 cases, avg 30.02 days\n  In-Person (Intake_Channel) -> Change of Circumstances (Case_Category): 120 cases, avg 19.45 days\n  In-Person (Intake_Channel) -> New Application (Case_Category): 129 cases, avg 23.8 days\n  In-Person (Intake_Channel) -> Renewal (Case_Category): 134 cases, avg 16.07 days\n  Mail (Intake_Channel) -> Appeal (Case_Category): 89 cases, avg 33.02 days\n  Mail (Intake_Channel) -> Change of Circumstances (Case_Category): 88 cases, avg 22.57 days\n  Mail (Intake_Channel) -> New Application (Case_Category): 128 cases, avg 27.92 days\n  Mail (Intake_Channel) -> Renewal (Case_Category): 120 cases, avg 19.1 days\n  Online Portal (Intake_Channel) -> Appeal (Case_Category): 118 cases, avg 23.63 days\n  Online Portal (Intake_Channel) -> Change of Circumstances (Case_Category): 140 cases, avg 14.37 days\n  Online Portal (Intake_Channel) -> New Application (Case_Category): 141 cases, avg 19.08 days\n  Online Portal (Intake_Channel) -> Renewal (Case_Category): 163 cases, avg 11.34 days\n  Phone (Intake_Channel) -> Appeal (Case_Category): 115 cases, avg 27.5 days\n  Phone (Intake_Channel) -> Change of Circumstances (Case_Category): 128 cases, avg 17.49 days\n  Phone (Intake_Channel) -> New Application (Case_Category): 138 cases, avg 21.02 days\n  Phone (Intake_Channel) -> Renewal (Case_Category): 136 cases, avg 12.82 days\n  Appeal (Case_Category) -> Doc Verification (Processing_Stage): 119 cases, avg 27.37 days\n  Appeal (Case_Category) -> Eligibility Det. (Processing_Stage): 105 cases, avg 29.95 days\n  Appeal (Case_Category) -> Initial Review (Processing_Stage): 123 cases, avg 23.62 days\n  Appeal (Case_Category) -> Supervisor Review (Processing_Stage): 88 cases, avg 33.8 days\n  Change of Circumstances (Case_Category) -> Doc Verification (Processing_Stage): 120 cases, avg 16.92 days\n  Change of Circumstances (Case_Category) -> Eligibility Det. (Processing_Stage): 124 cases, avg 21.02 days\n  Change of Circumstances (Case_Category) -> Initial Review (Processing_Stage): 141 cases, avg 12.77 days\n  Change of Circumstances (Case_Category) -> Supervisor Review (Processing_Stage): 91 cases, avg 23.44 days\n  New Application (Case_Category) -> Doc Verification (Processing_Stage): 141 cases, avg 21.11 days\n  New Application (Case_Category) -> Eligibility Det. (Processing_Stage): 134 cases, avg 23.64 days\n  New Application (Case_Category) -> Initial Review (Processing_Stage): 126 cases, avg 18.52 days\n  New Application (Case_Category) -> Supervisor Review (Processing_Stage): 135 cases, avg 27.83 days\n  Renewal (Case_Category) -> Doc Verification (Processing_Stage): 129 cases, avg 13.15 days\n  Renewal (Case_Category) -> Eligibility Det. (Processing_Stage): 134 cases, avg 16.77 days\n  Renewal (Case_Category) -> Initial Review (Processing_Stage): 164 cases, avg 9.24 days\n  Renewal (Case_Category) -> Supervisor Review (Processing_Stage): 126 cases, avg 20.45 days\n  Doc Verification (Processing_Stage) -> Appealed (Resolution): 57 cases, avg 29.59 days\n  Doc Verification (Processing_Stage) -> Approved (Resolution): 155 cases, avg 14.27 days\n  Doc Verification (Processing_Stage) -> Approved Partial (Resolution): 114 cases, avg 17.6 days\n  Doc Verification (Processing_Stage) -> Denied (Resolution): 89 cases, avg 23.56 days\n  Doc Verification (Processing_Stage) -> Pending (Resolution): 94 cases, avg 20.85 days\n  Eligibility Det. (Processing_Stage) -> Appealed (Resolution): 59 cases, avg 32.63 days\n  Eligibility Det. (Processing_Stage) -> Approved (Resolution): 154 cases, avg 16.67 days\n  Eligibility Det. (Processing_Stage) -> Approved Partial (Resolution): 88 cases, avg 20.92 days\n  Eligibility Det. (Processing_Stage) -> Denied (Resolution): 87 cases, avg 26.69 days\n  Eligibility Det. (Processing_Stage) -> Pending (Resolution): 109 cases, avg 23.03 days\n  Initial Review (Processing_Stage) -> Appealed (Resolution): 70 cases, avg 25.2 days\n  Initial Review (Processing_Stage) -> Approved (Resolution): 168 cases, avg 9.66 days\n  Initial Review (Processing_Stage) -> Approved Partial (Resolution): 110 cases, avg 12.13 days\n  Initial Review (Processing_Stage) -> Denied (Resolution): 94 cases, avg 20.26 days\n  Initial Review (Processing_Stage) -> Pending (Resolution): 112 cases, avg 17.23 days\n  Supervisor Review (Processing_Stage) -> Appealed (Resolution): 48 cases, avg 36.57 days\n  Supervisor Review (Processing_Stage) -> Approved (Resolution): 146 cases, avg 20.88 days\n  Supervisor Review (Processing_Stage) -> Approved Partial (Resolution): 87 cases, avg 23.72 days\n  Supervisor Review (Processing_Stage) -> Denied (Resolution): 81 cases, avg 29.77 days\n  Supervisor Review (Processing_Stage) -> Pending (Resolution): 78 cases, avg 27.71 days\n\nTWO SLIDERS:\n1. Case workers (1-10, default 5): wFactor = 5/workers\n2. Doc automation (0%-100%, default 50%): aFactor = 1 + (50-pct)/100 * 0.6\n   adjusted_days = base_days * wFactor * aFactor\n\nIMPORTANT: Always use counts from NODE DATA \u2014 never compute from flows.\nRegulatory: expedited cases in 7 days, standard in 30 days.\n\nOUTPUT FORMAT: When your answer contains comparative data OR the user asks for a table, respond with a JSON object in EXACTLY this format (one short intro sentence before, nothing after):\n{\"type\":\"table\",\"title\":\"Short title\",\"headers\":[\"Column\",\"Avg Days\",\"Cases\"],\"rows\":[[\"Label\",12.5,450]],\"delay_cols\":[1]}\ndelay_cols = 0-based indices of processing-time columns (color-coded green->red).\nFor simple one-liner answers use plain text only.";
+
+const ML=148,MR=14,MT=6,MB=6,BAR_H=30,NODE_GAP=5;
+const ROW_Y=[0,110,220,330],F_OPACITY=0.72;
+const colorFn=d3.scaleSequential().domain([0,35])
+  .interpolator(d3.interpolateRgbBasis(['#00c853','#aeea00','#ffd600','#ff6d00','#dd2c00']));
+
+let flowData=[],flowPaths,nodeRects={},selected=new Set();
+
+function getChartSize(){
+  const wrap=document.getElementById('chart-wrap');
+  return {W:Math.max(400,wrap.clientWidth),SVGH:ROW_Y[3]+BAR_H+MT+MB+10};
+}
+function buildLayout(W){
+  const cW=W-ML-MR,layout={};
+  DATA.levels.forEach((level,li)=>{
+    const order=DATA.level_order[level],gaps=order.length-1;
+    const equalW=(cW-gaps*NODE_GAP)/order.length;
+    let xAcc=0; layout[level]={};
+    order.forEach((name,ni)=>{
+      layout[level][name]={x:xAcc+ni*NODE_GAP,w:equalW,li,
+        count:DATA.node_counts[level][name],out_offset:0,in_offset:0};
+      xAcc+=equalW;
+    });
+  });
+  return layout;
+}
+function ribbonPath(x1L,x1R,y1,x2L,x2R,y2){
+  const yM=(y1+y2)/2;
+  return `M${x1L},${y1} C${x1L},${yM} ${x2L},${yM} ${x2L},${y2} L${x2R},${y2} C${x2R},${yM} ${x1R},${yM} ${x1R},${y1} Z`;
+}
+function nodeAdjDelay(level,name){
+  const li=DATA.levels.indexOf(level);
+  const isLast=(li===DATA.levels.length-1);
+  const rel=flowData.filter(fd=>
+    isLast?(fd.tgtLevel===level&&fd.tgt===name):(fd.srcLevel===level&&fd.src===name));
+  const tot=rel.reduce((s,f)=>s+f.value,0);
+  return tot>0?rel.reduce((s,f)=>s+f.value*f.adj_delay,0)/tot:0;
+}
+function render(){
+  const {W,SVGH}=getChartSize();
+  const svgEl=document.getElementById('chart');
+  d3.select(svgEl).selectAll('*').remove();
+  svgEl.setAttribute('width',W); svgEl.setAttribute('height',SVGH);
+  const svg=d3.select(svgEl),g=svg.append('g').attr('transform',`translate(${ML},${MT})`);
+  const nl=buildLayout(W);
+  const prevAdj={};
+  flowData.forEach(fd=>{prevAdj[fd.src_li+'_'+fd.src+'_'+fd.tgt]=fd.adj_delay;});
+  flowData=DATA.flows.map(f=>{
+    const sL=DATA.levels[f.src_li],tL=DATA.levels[f.tgt_li];
+    const src=nl[sL][f.src],tgt=nl[tL][f.tgt];
+    const MAX_W=0.35;
+    const wSrc=Math.min(f.value/DATA.node_counts[sL][f.src]*src.w, src.w*MAX_W);
+    const wTgt=Math.min(f.value/DATA.node_counts[tL][f.tgt]*tgt.w, tgt.w*MAX_W);
+    const x1L=src.x+src.out_offset,x1R=x1L+wSrc;
+    const x2L=tgt.x+tgt.in_offset,x2R=x2L+wTgt;
+    src.out_offset+=wSrc; tgt.in_offset+=wTgt;
+    const key=f.src_li+'_'+f.src+'_'+f.tgt;
+    return {...f,srcLevel:sL,tgtLevel:tL,
+      path:ribbonPath(x1L,x1R,ROW_Y[f.src_li]+BAR_H,x2L,x2R,ROW_Y[f.tgt_li]),
+      base_delay:f.avg_delay,adj_delay:prevAdj[key]??f.avg_delay};
+  });
+  flowPaths=g.selectAll('.fp').data(flowData).join('path')
+    .attr('class','fp').attr('d',d=>d.path)
+    .attr('fill',d=>colorFn(d.adj_delay)).attr('opacity',0)
+    .on('mouseover',(ev,d)=>tip(ev,`${d.src} &rarr; ${d.tgt}<br><b>${d.value.toLocaleString()}</b> cases &middot; adj. <b>${d.adj_delay.toFixed(1)} days</b>`))
+    .on('mousemove',mv).on('mouseout',hideTip);
+  nodeRects={};
+  DATA.levels.forEach((level,li)=>{
+    DATA.level_order[level].forEach(name=>{
+      const n=nl[level][name],y=ROW_Y[li],key=level+':'+name;
+      nodeRects[key]=g.append('rect')
+        .attr('x',n.x).attr('y',y).attr('width',n.w).attr('height',BAR_H)
+        .attr('fill',colorFn(nodeAdjDelay(level,name))).attr('rx',3)
+        .style('cursor','pointer')
+        .on('mouseover',ev=>tip(ev,`<b>${name}</b> &middot; ${n.count.toLocaleString()} cases &middot; adj. <b>${nodeAdjDelay(level,name).toFixed(1)} days</b>`))
+        .on('mousemove',mv).on('mouseout',hideTip)
+        .on('click',()=>{selected.has(key)?selected.delete(key):selected.add(key);updateFlowVis();});
+      g.append('text').attr('x',n.x+n.w/2).attr('y',y+BAR_H/2+1)
+        .attr('text-anchor','middle').attr('dominant-baseline','middle')
+        .attr('font-size',n.w<60?9:11).attr('fill','#1a1a1a').attr('font-weight','700')
+        .attr('pointer-events','none').text(name);
+    });
+    g.append('text').attr('x',-8).attr('y',ROW_Y[li]+BAR_H/2+1)
+      .attr('text-anchor','end').attr('dominant-baseline','middle')
+      .attr('font-size',12).attr('font-weight','700').attr('fill','#222')
+      .text(DATA.level_labels[li]);
+  });
+  updateFlowVis();
+}
+function recolor(animate=true){
+  const workers=+document.getElementById('sl-workers').value;
+  const autoPct=+document.getElementById('sl-auto').value;
+  const wFactor=5/workers;
+  const aFactor=1+(50-autoPct)/100*0.6;
+  const combined=wFactor*aFactor;
+  flowData.forEach(fd=>{fd.adj_delay=fd.base_delay*combined;});
+  (animate?flowPaths.transition().duration(180):flowPaths).attr('fill',d=>colorFn(d.adj_delay));
+  DATA.levels.forEach(level=>DATA.level_order[level].forEach(name=>{
+    const s=nodeRects[level+':'+name],c=colorFn(nodeAdjDelay(level,name));
+    animate?s.transition().duration(180).attr('fill',c):s.attr('fill',c);
+  }));
+}
+function updateFlowVis(){
+  if(!flowPaths)return;
+  flowPaths.transition().duration(200).attr('opacity',d=>{
+    if(selected.size===0)return 0;
+    return selected.has(d.srcLevel+':'+d.src)||selected.has(d.tgtLevel+':'+d.tgt)?F_OPACITY:0;
+  });
+}
+document.getElementById('sl-workers').addEventListener('input',function(){
+  document.getElementById('val-workers').textContent=this.value; recolor();
+});
+document.getElementById('sl-auto').addEventListener('input',function(){
+  document.getElementById('val-auto').textContent=this.value+'%'; recolor();
+});
+render();
+new ResizeObserver(()=>render()).observe(document.getElementById('chart-wrap'));
+
+// Tooltip
+const tt=document.getElementById('tooltip');
+function tip(ev,html){tt.innerHTML=html;tt.style.display='block';mv(ev);}
+function mv(ev){tt.style.left=(ev.clientX+14)+'px';tt.style.top=(ev.clientY-36)+'px';}
+function hideTip(){tt.style.display='none';}
+
+// Divider
+const dividerEl=document.getElementById('divider');
+const chatPanelEl=document.getElementById('chat-panel');
+const mainEl=document.getElementById('main');
+let isDragging=false,dragStartX=0,dragStartW=0;
+dividerEl.addEventListener('mousedown',e=>{
+  isDragging=true;dragStartX=e.clientX;dragStartW=chatPanelEl.offsetWidth;
+  dividerEl.classList.add('dragging');document.body.style.cursor='col-resize';
+  document.body.style.userSelect='none';e.preventDefault();
+});
+document.addEventListener('mousemove',e=>{
+  if(!isDragging)return;
+  const mainW=mainEl.offsetWidth;
+  const newW=Math.min(Math.max(dragStartW+(dragStartX-e.clientX),mainW*0.20),mainW*0.60);
+  chatPanelEl.style.flex=`0 0 ${newW}px`;
+});
+document.addEventListener('mouseup',()=>{
+  if(!isDragging)return;
+  isDragging=false;dividerEl.classList.remove('dragging');
+  document.body.style.cursor='';document.body.style.userSelect='';
+});
+
+// API key
+let apiKey='';
+function toggleSettings(){
+  const panel=document.getElementById('settings-panel');
+  const btn=document.getElementById('settings-btn');
+  const open=panel.style.display==='block';
+  panel.style.display=open?'none':'block';
+  btn.classList.toggle('active',!open);
+}
+function saveKey(){
+  const val=document.getElementById('api-key-input').value.trim();
+  const status=document.getElementById('key-status');
+  if(!val.startsWith('sk-')){status.textContent='Key should start with sk-';status.className='err';return;}
+  apiKey=val;status.textContent='Key saved for this session';status.className='ok';
+  setTimeout(()=>toggleSettings(),900);
+}
+
+// Chat table helpers
+function chatDelayColor(v){
+  const stops=[[0,[0,200,83]],[9,[174,234,0]],[18,[255,214,0]],[26,[255,109,0]],[35,[221,44,0]]];
+  const clamped=Math.max(0,Math.min(35,v));
+  let lo=stops[0],hi=stops[stops.length-1];
+  for(let i=0;i<stops.length-1;i++){if(clamped>=stops[i][0]&&clamped<=stops[i+1][0]){lo=stops[i];hi=stops[i+1];break;}}
+  const t=lo[0]===hi[0]?0:(clamped-lo[0])/(hi[0]-lo[0]);
+  const r=Math.round(lo[1][0]+(hi[1][0]-lo[1][0])*t);
+  const g2=Math.round(lo[1][1]+(hi[1][1]-lo[1][1])*t);
+  const b=Math.round(lo[1][2]+(hi[1][2]-lo[1][2])*t);
+  const lum=0.2126*(r/255)**2.2+0.7152*(g2/255)**2.2+0.0722*(b/255)**2.2;
+  return {bg:`rgb(${r},${g2},${b})`,fg:lum>0.18?'#1a1a1a':'#fff'};
+}
+function renderChatTable(td,intro){
+  const {title='',headers=[],rows=[],delay_cols=[]}=td;
+  let h='';
+  if(intro)h+=`<div style="font-size:12px;margin-bottom:6px">${intro}</div>`;
+  h+='<div class="chat-tbl-wrap">';
+  if(title)h+=`<div class="chat-tbl-title">${title}</div>`;
+  h+='<table class="chat-tbl"><thead><tr>';
+  headers.forEach(hdr=>h+=`<th>${hdr}</th>`);
+  h+='</tr></thead><tbody>';
+  rows.forEach(row=>{
+    h+='<tr>';
+    row.forEach((cell,ci)=>{
+      if(delay_cols.includes(ci)&&typeof cell==='number'){
+        const {bg,fg}=chatDelayColor(cell);
+        h+=`<td class="dcell" style="background:${bg};color:${fg}">${cell.toFixed(1)}</td>`;
+      }else{h+=`<td>${typeof cell==='number'?cell.toLocaleString():cell}</td>`;}
+    });
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  return h;
+}
+function parseChatResponse(text){
+  const m=text.match(/\{[\s\S]*?"type"\s*:\s*"table"[\s\S]*?\}/);
+  if(m){try{const td=JSON.parse(m[0]);if(td.type==='table'){const intro=text.slice(0,m.index).trim();return{isTable:true,html:renderChatTable(td,intro)};}}catch(e){}}
+  return{isTable:false,text};
+}
+
+// Chat
+const chatHistory=[];
+function addMessage(role,content,isHtml=false){
+  const msgs=document.getElementById('chat-messages');
+  const div=document.createElement('div');
+  div.className='msg '+role;
+  if(isHtml)div.innerHTML=content;else div.textContent=content;
+  msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;
+  return div;
+}
+async function sendMessage(){
+  if(!apiKey){addMessage('assistant','Please set your OpenAI API key via the gear icon first.');return;}
+  const input=document.getElementById('chat-input');
+  const text=input.value.trim();if(!text)return;
+  input.value='';input.style.height='';
+  document.getElementById('chat-send').disabled=true;
+  addMessage('user',text);
+  chatHistory.push({role:'user',content:text});
+  const thinking=addMessage('thinking','Thinking...');
+  try{
+    const res=await fetch('https://api.openai.com/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+      body:JSON.stringify({model:'gpt-4o-mini',
+        messages:[{role:'system',content:SYSTEM_PROMPT},...chatHistory],
+        max_tokens:350,temperature:0.4})
+    });
+    const d=await res.json();
+    if(d.error)throw new Error(d.error.message);
+    const reply=d.choices[0].message.content;
+    const parsed=parseChatResponse(reply);
+    thinking.className='msg assistant';
+    if(parsed.isTable)thinking.innerHTML=parsed.html;else thinking.textContent=parsed.text;
+    chatHistory.push({role:'assistant',content:reply});
+  }catch(e){
+    thinking.className='msg assistant';
+    thinking.textContent='Error: '+(e.message||'Check your API key.');
+  }
+  document.getElementById('chat-send').disabled=false;
+}
+function sendChip(el){document.getElementById('chat-input').value=el.textContent;sendMessage();}
+document.getElementById('chat-input').addEventListener('input',function(){
+  this.style.height='';this.style.height=Math.min(this.scrollHeight,80)+'px';
+});
+document.getElementById('chat-input').addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}
+});
+</script>
+</body>
+</html>
